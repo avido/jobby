@@ -56,7 +56,7 @@ class JobbyTest extends \PHPUnit_Framework_TestCase
             [
                 'command'  => 'php ' . __DIR__ . '/_files/helloworld.php',
                 'schedule' => '* * * * *',
-                'output'   => $this->logFile,
+                'output'   => $this->logFile
             ]
         );
         $jobby->run();
@@ -66,6 +66,65 @@ class JobbyTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals('Hello World!', $this->getLogContent());
     }
+    
+    /**
+     * @covers ::add
+     * @covers ::run
+     * @covers ::hooks
+     */
+    public function testShellHookPreRun()
+    {
+        $jobby = new Jobby();
+        $jobby->add(
+            'HelloWorldShell',
+            [
+                'command'  => 'php ' . __DIR__ . '/_files/helloworld.php',
+                'schedule' => '* * * * *',
+                'output'   => $this->logFile,
+                'hooks' => [
+                    'pre_run' => function() {
+                        file_put_contents(__DIR__ . '/_files/hooks/pre_run', 1);
+                    }
+                ]
+            ]
+        );
+        $jobby->run();
+
+        // Job runs asynchronously, so wait a bit
+        sleep($this->getSleepTime());
+
+        $this->assertTrue(file_exists(__DIR__ . '/_files/hooks/pre_run'));
+    }
+
+    /**
+     * @covers ::add
+     * @covers ::run
+     * @covers ::hooks
+     */
+    public function testShellHookAfterRun()
+    {
+        $jobby = new Jobby();
+        $jobby->add(
+            'HelloWorldShell',
+            [
+                'command'  => 'php ' . __DIR__ . '/_files/helloworld.php',
+                'schedule' => '* * * * *',
+                'output'   => $this->logFile,
+                'hooks' => [
+                    'after_run' => function() {
+                        file_put_contents(__DIR__ . '/_files/hooks/after_run', 1);
+                    }
+                ]
+            ]
+        );
+        $jobby->run();
+
+        // Job runs asynchronously, so wait a bit
+        sleep($this->getSleepTime());
+
+        $this->assertTrue(file_exists(__DIR__ . '/_files/hooks/after_run'));
+    }
+
 
     /**
      * @return void
