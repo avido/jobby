@@ -32,6 +32,14 @@ class Jobby
     protected $helper;
 
     /**
+     * @var array hooks 
+     */
+    private $hooks = [
+        'pre_run' => null,
+        'after_run' => null
+    ];
+    
+    /**
      * @param array $config
      */
     public function __construct(array $config = [])
@@ -81,6 +89,7 @@ class Jobby
             'enabled'        => true,
             'haltDir'        => null,
             'debug'          => false,
+            'hooks' => $this->hooks
         ];
     }
 
@@ -139,6 +148,7 @@ class Jobby
                 $config['closure'] = $config['closure']->getClosure();
             }
         }
+        $config['hooks'] = $this->mapHooks(isset($config['hooks']) ? $config['hooks'] : []);
 
         $config = array_merge($this->config, $config);
         $this->jobs[] = [$job, $config];
@@ -161,11 +171,15 @@ class Jobby
             if (!$scheduleChecker->isDue($config['schedule'])) {
                 continue;
             }
+            // emit pre_run hook
+            call_user_func($config['hooks']['pre_run']);
             if ($isUnix) {
                 $this->runUnix($job, $config);
             } else {
                 $this->runWindows($job, $config);
             }
+            // emit after_run hook
+            call_user_func($config['hooks']['after_run']);
         }
     }
 
@@ -226,5 +240,27 @@ class Jobby
         $executableFinder = new PhpExecutableFinder();
 
         return $executableFinder->find();
+    }
+    
+    /**
+     * Set valid hooks
+     *
+     * @access private
+     * @param array $hooks
+     * @return array
+     */
+    private function mapHooks(array $hooks = [])
+    {
+        $availableHooks = array_keys($this->hooks);
+        $hooksConfig = [];
+        foreach ($availableHooks as $key) {
+            if (isset($hooks[$key]) && $hooks[$key] instanceof Closure) {
+                $hooksConfig[$key] = $hooks[$key];
+            } else {
+                // empty closure
+                $hooksConfig[$key] = function() {};
+            }
+        }
+        return $hooksConfig;
     }
 }
